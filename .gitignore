@@ -1,0 +1,27 @@
+# Entorno virtual
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+
+# Documentos de trabajo locales
+CLAUDE.md
+PLANNING.md
+
+# Migraciones (se mantienen los __init__.py para no romper los paquetes)
+apps/*/migrations/*.py
+!apps/*/migrations/__init__.py
+
+# Archivos subidos
+media/
+
+# Configuración local / secretos
+.env
+.env.*
+
+# IDE / SO
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store
