@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'apps.accounts',
     'apps.farms',
     'apps.livestock',
+    'apps.reproduction',
 ]
 
 MIDDLEWARE = [

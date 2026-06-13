@@ -8,6 +8,7 @@ __pycache__/
 # Documentos de trabajo locales
 CLAUDE.md
 PLANNING.md
+NOTES.local.md
 
 # Migraciones (se mantienen los __init__.py para no romper los paquetes)
 apps/*/migrations/*.py

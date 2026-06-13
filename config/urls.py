@@ -23,6 +23,10 @@ urlpatterns = [
     path('api/v1/auth/', include('apps.accounts.api.urls')),
     path('api/v1/farms/', include('apps.farms.api.urls')),
     path('api/v1/livestock/', include('apps.livestock.api.urls')),
+    path(
+        'api/v1/livestock/animals/<int:animal_id>/reproduction/',
+        include('apps.reproduction.api.urls'),
+    ),
 
     # Docs
     path('swagger<format>/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-json'),
