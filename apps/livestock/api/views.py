@@ -21,9 +21,10 @@ class AnimalViewSet(FarmScopedMixin, viewsets.ModelViewSet):
     serializer_class = AnimalSerializer
     queryset = (
         Animal.objects.filter(is_active=True)
-        .select_related('mother', 'father')
+        .select_related('mother', 'father', 'breed')
         .prefetch_related(
             'photos',
+            'identifications__identification_type',
             Prefetch(
                 'reproductive_events',
                 queryset=ReproductiveEvent.objects.filter(is_active=True),

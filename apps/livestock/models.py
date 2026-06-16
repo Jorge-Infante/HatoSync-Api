@@ -28,6 +28,10 @@ class Animal(models.Model):
         'self', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='paternal_offspring', verbose_name='padre',
     )
+    breed = models.ForeignKey(
+        'configuration.Breed', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='animals', verbose_name='raza',
+    )
     is_active = models.BooleanField('activo', default=True)
     created_at = models.DateTimeField('fecha de creación', auto_now_add=True)
     updated_at = models.DateTimeField('fecha de actualización', auto_now=True)

@@ -27,6 +27,7 @@ urlpatterns = [
         'api/v1/livestock/animals/<int:animal_id>/reproduction/',
         include('apps.reproduction.api.urls'),
     ),
+    path('api/v1/configuration/', include('apps.configuration.api.urls')),
 
     # Docs
     path('swagger<format>/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-json'),
