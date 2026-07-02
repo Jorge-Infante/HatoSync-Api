@@ -47,7 +47,8 @@ class RegisterSerializer(serializers.ModelSerializer):
 class ActiveFarmSerializer(serializers.Serializer):
     """Cambiar la finca activa del usuario autenticado."""
 
-    farm_id = serializers.IntegerField()
+    # La finca usa PK UUID (migración 2026-06).
+    farm_id = serializers.UUIDField()
 
     def validate_farm_id(self, value):
         from apps.farms.models import Farm

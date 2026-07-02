@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.db import models
 
@@ -13,6 +15,7 @@ class Farm(DeferredFilesMixin, models.Model):
 
     DEFERRED_FILE_FIELDS = ('logo',)
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField('nombre', max_length=255)
     legal_name = models.CharField('razón social', max_length=255, blank=True)
     tax_id = models.CharField('NIT/RUT', max_length=50, blank=True)
@@ -52,6 +55,7 @@ class FarmMember(models.Model):
         EMPLOYEE = 'EMPLOYEE', 'Empleado'
         PARTNER = 'PARTNER', 'Socio'
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     farm = models.ForeignKey(
         Farm, on_delete=models.CASCADE, related_name='members', verbose_name='finca',
     )

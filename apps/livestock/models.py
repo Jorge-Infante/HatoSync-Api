@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.utils import timezone
 
@@ -13,6 +15,7 @@ class Animal(models.Model):
         MALE = 'MALE', 'Macho'
         FEMALE = 'FEMALE', 'Hembra'
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     farm = models.ForeignKey(
         'farms.Farm', on_delete=models.CASCADE,
         related_name='animals', verbose_name='finca',
@@ -52,6 +55,7 @@ class Animal(models.Model):
 class AnimalPhoto(models.Model):
     """Foto de un animal (un animal puede tener varias)."""
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     animal = models.ForeignKey(
         Animal, on_delete=models.CASCADE,
         related_name='photos', verbose_name='animal',

@@ -1,12 +1,12 @@
 from rest_framework import viewsets
 
-from apps.common.mixins import FarmScopedMixin
+from apps.common.mixins import FarmScopedMixin, IdempotentCreateMixin
 
 from ..models import Breed, IdentificationType
 from .serializers import BreedSerializer, IdentificationTypeSerializer
 
 
-class IdentificationTypeViewSet(FarmScopedMixin, viewsets.ModelViewSet):
+class IdentificationTypeViewSet(IdempotentCreateMixin, FarmScopedMixin, viewsets.ModelViewSet):
     """CRUD de tipos de identificación de la finca activa del usuario."""
 
     serializer_class = IdentificationTypeSerializer
@@ -18,7 +18,7 @@ class IdentificationTypeViewSet(FarmScopedMixin, viewsets.ModelViewSet):
         instance.save(update_fields=['is_active'])
 
 
-class BreedViewSet(FarmScopedMixin, viewsets.ModelViewSet):
+class BreedViewSet(IdempotentCreateMixin, FarmScopedMixin, viewsets.ModelViewSet):
     """CRUD de razas de la finca activa del usuario."""
 
     serializer_class = BreedSerializer

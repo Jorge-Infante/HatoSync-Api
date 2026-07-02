@@ -9,7 +9,7 @@ urlpatterns = [
     }), name='repro-events-list'),
     path('birth/', BirthView.as_view(), name='repro-birth'),
     path('wean/', WeanView.as_view(), name='repro-wean'),
-    path('<int:pk>/', ReproductiveEventViewSet.as_view({
+    path('<uuid:pk>/', ReproductiveEventViewSet.as_view({
         'get': 'retrieve',
         'patch': 'partial_update',
         'delete': 'destroy',

@@ -6,30 +6,30 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.common.mixins import FarmScopedMixin
+from apps.common.mixins import FarmScopedMixin, IdempotentCreateMixin
 from apps.common.permissions import HasActiveFarm
 from apps.reproduction.models import ReproductiveEvent
 
 from ..models import Animal, AnimalPhoto
 from ..services import GENEALOGY_DEFAULT_DEPTH, build_genealogy
-from .serializers import AnimalPhotoSerializer, AnimalSerializer
+from .serializers import (
+    AnimalDetailSerializer,
+    AnimalListSerializer,
+    AnimalPhotoSerializer,
+    AnimalSerializer,
+)
 
 
-class AnimalViewSet(FarmScopedMixin, viewsets.ModelViewSet):
+class AnimalViewSet(IdempotentCreateMixin, FarmScopedMixin, viewsets.ModelViewSet):
     """CRUD de animales de la finca activa del usuario."""
 
     serializer_class = AnimalSerializer
+    # Base barata compartida por todas las acciones: joins directos + conteos
+    # derivados. Las relaciones pesadas se prefetchean por acción (get_queryset),
+    # para que el listado no las pague.
     queryset = (
         Animal.objects.filter(is_active=True)
         .select_related('mother', 'father', 'breed')
-        .prefetch_related(
-            'photos',
-            'identifications__identification_type',
-            Prefetch(
-                'reproductive_events',
-                queryset=ReproductiveEvent.objects.filter(is_active=True),
-            ),
-        )
         .annotate(
             # Partos (como madre): fechas de nacimiento distintas entre sus
             # hijos activos — los gemelos comparten fecha y cuentan como 1.
@@ -47,9 +47,49 @@ class AnimalViewSet(FarmScopedMixin, viewsets.ModelViewSet):
         )
     )
 
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return AnimalListSerializer
+        if self.action == 'full':
+            return AnimalDetailSerializer
+        return AnimalSerializer
+
+    def get_queryset(self):
+        qs = super().get_queryset()  # FarmScopedMixin aplica el filtro por finca activa
+        events = ReproductiveEvent.objects.filter(is_active=True)
+        if self.action == 'full':
+            # Ficha completa (una sola fila): trae también historial de eventos y crías.
+            active = Animal.objects.filter(is_active=True)
+            return qs.prefetch_related(
+                'photos',
+                'identifications__identification_type',
+                Prefetch('reproductive_events', queryset=events.select_related('sire', 'offspring')),
+                Prefetch('maternal_offspring', queryset=active),
+                Prefetch('paternal_offspring', queryset=active),
+            )
+        # list / retrieve / create / update: lo mínimo para el chip y la ficha básica.
+        return qs.prefetch_related(
+            'photos',
+            'identifications__identification_type',
+            Prefetch('reproductive_events', queryset=events),
+        )
+
     def perform_destroy(self, instance):
         instance.is_active = False
         instance.save(update_fields=['is_active'])
+
+    @action(detail=True, methods=['get'])
+    def full(self, request, pk=None):
+        """Ficha completa del animal: datos + raza + identificaciones + fotos +
+        estado reproductivo + historial de eventos + crías, en una sola llamada.
+
+        Endpoint aparte a propósito: el listado (`GET /animals/`) usa un serializer
+        liviano, así que traer todo el hato no arrastra estas relaciones — solo
+        se pagan cuando se pide la ficha de un animal concreto. La genealogía
+        profunda sigue en su propio endpoint (`genealogy/`).
+        """
+        animal = self.get_object()
+        return Response(self.get_serializer(animal).data)
 
     @action(detail=True, methods=['get'])
     def genealogy(self, request, pk=None):

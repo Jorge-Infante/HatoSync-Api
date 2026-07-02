@@ -10,7 +10,7 @@ urlpatterns = [
         'get': 'list',
         'post': 'create',
     }), name='farm-members-list'),
-    path('members/<int:pk>/', FarmMemberViewSet.as_view({
+    path('members/<uuid:pk>/', FarmMemberViewSet.as_view({
         'get': 'retrieve',
         'patch': 'partial_update',
         'delete': 'destroy',

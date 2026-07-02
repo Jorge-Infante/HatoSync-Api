@@ -7,11 +7,11 @@ router = DefaultRouter()
 router.register(prefix='animals', basename='animals', viewset=AnimalViewSet)
 
 urlpatterns = [
-    path('animals/<int:animal_id>/photos/', AnimalPhotoViewSet.as_view({
+    path('animals/<uuid:animal_id>/photos/', AnimalPhotoViewSet.as_view({
         'get': 'list',
         'post': 'create',
     }), name='animal-photos-list'),
-    path('animals/<int:animal_id>/photos/<int:pk>/', AnimalPhotoViewSet.as_view({
+    path('animals/<uuid:animal_id>/photos/<uuid:pk>/', AnimalPhotoViewSet.as_view({
         'get': 'retrieve',
         'delete': 'destroy',
     }), name='animal-photos-detail'),

@@ -1,3 +1,5 @@
+import uuid
+
 from django.core.validators import RegexValidator
 from django.db import models
 
@@ -9,6 +11,7 @@ digits_validator = RegexValidator(r'^\d+$', 'El valor debe contener solo dígito
 class IdentificationType(models.Model):
     """Tipo de identificación que cada finca configura (p. ej. Chapeta, Hierro)."""
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     farm = models.ForeignKey(
         'farms.Farm', on_delete=models.CASCADE,
         related_name='identification_types', verbose_name='finca',
@@ -42,6 +45,7 @@ class IdentificationType(models.Model):
 class Breed(models.Model):
     """Raza que cada finca configura (clasificación y KPIs)."""
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     farm = models.ForeignKey(
         'farms.Farm', on_delete=models.CASCADE,
         related_name='breeds', verbose_name='finca',
@@ -74,6 +78,7 @@ class AnimalIdentification(models.Model):
     varias identificaciones (chapeta, hierro, etc.), una por tipo.
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     animal = models.ForeignKey(
         'livestock.Animal', on_delete=models.CASCADE,
         related_name='identifications', verbose_name='animal',

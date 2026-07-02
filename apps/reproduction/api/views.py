@@ -4,6 +4,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
+from apps.common.mixins import IdempotentCreateMixin
 from apps.common.permissions import HasActiveFarm
 from apps.livestock.models import Animal
 
@@ -21,7 +22,7 @@ def get_active_female(request, animal_id):
     return animal
 
 
-class ReproductiveEventViewSet(viewsets.ModelViewSet):
+class ReproductiveEventViewSet(IdempotentCreateMixin, viewsets.ModelViewSet):
     """Eventos reproductivos de una hembra de la finca activa."""
 
     serializer_class = ReproductiveEventSerializer

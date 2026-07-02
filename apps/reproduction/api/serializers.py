@@ -12,6 +12,8 @@ _SERVICE_TYPES = (_EVENT_TYPE.INSEMINATION, _EVENT_TYPE.NATURAL_MATING)
 class ReproductiveEventSerializer(serializers.ModelSerializer):
     """Serializer para eventos reproductivos. El animal llega por la URL."""
 
+    # Escribible para soporte offline (UUID generado por el cliente; idempotente).
+    id = serializers.UUIDField(required=False)
     event_type_display = serializers.CharField(source='get_event_type_display', read_only=True)
     sire_name = serializers.CharField(source='sire.name', read_only=True, default=None)
     offspring_name = serializers.CharField(source='offspring.name', read_only=True, default=None)
@@ -24,7 +26,7 @@ class ReproductiveEventSerializer(serializers.ModelSerializer):
             'sire', 'sire_name', 'offspring', 'offspring_name',
             'notes', 'is_active', 'created_at', 'updated_at',
         )
-        read_only_fields = ('id', 'is_active', 'created_at', 'updated_at')
+        read_only_fields = ('is_active', 'created_at', 'updated_at')
 
     def validate_date(self, value):
         if value > timezone.localdate():

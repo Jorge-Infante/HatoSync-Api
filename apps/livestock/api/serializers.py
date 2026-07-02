@@ -1,9 +1,21 @@
+import json
+
 from rest_framework import serializers
 
 from apps.configuration.models import AnimalIdentification, Breed, IdentificationType, digits_validator
+from apps.reproduction.api.serializers import ReproductiveEventSerializer
 from apps.reproduction.services import summarize_reproduction
 
 from ..models import Animal, AnimalPhoto
+
+
+def _photo_url(photo, context):
+    """URL absoluta de una foto (o None), usando el request del contexto si lo hay."""
+    if photo is None:
+        return None
+    request = context.get('request') if context else None
+    url = photo.image.url
+    return request.build_absolute_uri(url) if request else url
 
 
 class AnimalPhotoSerializer(serializers.ModelSerializer):
@@ -39,6 +51,10 @@ class AnimalIdentificationWriteSerializer(serializers.Serializer):
 class AnimalSerializer(serializers.ModelSerializer):
     """Serializer para animales. La finca se asigna desde la finca activa del usuario."""
 
+    # Escribible para soporte offline: el cliente puede generar el UUID al crear
+    # sin conexión y enviarlo aquí (idempotente al sincronizar). Si se omite, el
+    # modelo genera uno con uuid4.
+    id = serializers.UUIDField(required=False)
     sex_display = serializers.CharField(source='get_sex_display', read_only=True)
     mother_name = serializers.CharField(source='mother.name', read_only=True, default=None)
     father_name = serializers.CharField(source='father.name', read_only=True, default=None)
@@ -50,7 +66,13 @@ class AnimalSerializer(serializers.ModelSerializer):
     # en la escritura como lista [{identification_type, value}, ...] y se devuelven
     # resueltas (con el nombre del tipo) en `to_representation`.
     identifications = AnimalIdentificationWriteSerializer(many=True, required=False)
-    photos = AnimalPhotoSerializer(many=True, read_only=True)
+    # Lectura: lista de fotos (objetos). Escritura: lista de archivos para adjuntar
+    # en el mismo POST/PATCH (multipart). Las fotos existentes se conservan; para
+    # quitarlas se usa el endpoint anidado de fotos.
+    photos = serializers.ListField(
+        child=serializers.ImageField(), write_only=True, required=False,
+        help_text='Imágenes a adjuntar (multipart, clave repetida "photos").',
+    )
     # Anotados en el queryset del viewset (siempre exactos, no se almacenan).
     births_count = serializers.IntegerField(read_only=True, default=0, help_text='Partos como madre.')
     offspring_count = serializers.IntegerField(read_only=True, default=0, help_text='Hijos como padre.')
@@ -67,15 +89,37 @@ class AnimalSerializer(serializers.ModelSerializer):
             'births_count', 'offspring_count', 'reproduction',
             'photos', 'is_active', 'created_at', 'updated_at',
         )
-        read_only_fields = ('id', 'is_active', 'created_at', 'updated_at')
+        read_only_fields = ('is_active', 'created_at', 'updated_at')
 
     def get_reproduction(self, obj):
         return summarize_reproduction(obj)
+
+    def to_internal_value(self, data):
+        # En multipart/form-data (cuando se suben fotos en el mismo request), las
+        # fotos llegan como archivos repetidos bajo "photos" y las identificaciones
+        # como string JSON. Se normaliza a un dict plano para el procesamiento DRF.
+        if hasattr(data, 'getlist'):
+            normalized = {key: data.get(key) for key in data.keys()}
+            raw_ids = normalized.get('identifications')
+            if isinstance(raw_ids, str):
+                try:
+                    normalized['identifications'] = json.loads(raw_ids) if raw_ids.strip() else []
+                except json.JSONDecodeError:
+                    raise serializers.ValidationError(
+                        {'identifications': 'Debe ser una lista JSON válida.'}
+                    )
+            if 'photos' in data:
+                normalized['photos'] = data.getlist('photos')
+            data = normalized
+        return super().to_internal_value(data)
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
         data['identifications'] = AnimalIdentificationSerializer(
             instance.identifications.all(), many=True,
+        ).data
+        data['photos'] = AnimalPhotoSerializer(
+            instance.photos.all(), many=True, context=self.context,
         ).data
         return data
 
@@ -140,16 +184,103 @@ class AnimalSerializer(serializers.ModelSerializer):
             for item in identifications
         ])
 
+    def _add_photos(self, animal, photos):
+        # Append: no reemplaza las existentes (para quitarlas está el endpoint de fotos).
+        for image in photos:
+            AnimalPhoto.objects.create(animal=animal, image=image)
+
     def create(self, validated_data):
         identifications = validated_data.pop('identifications', None)
+        photos = validated_data.pop('photos', None)
         animal = super().create(validated_data)
         if identifications is not None:
             self._sync_identifications(animal, identifications)
+        if photos:
+            self._add_photos(animal, photos)
         return animal
 
     def update(self, instance, validated_data):
         identifications = validated_data.pop('identifications', None)
+        photos = validated_data.pop('photos', None)
         animal = super().update(instance, validated_data)
         if identifications is not None:
             self._sync_identifications(animal, identifications)
+        if photos:
+            self._add_photos(animal, photos)
         return animal
+
+
+class AnimalListSerializer(serializers.ModelSerializer):
+    """Serializer liviano para el LISTADO. No trae el arreglo completo de fotos
+    (solo la principal) ni colecciones pesadas; para todo eso está la ficha
+    completa (`GET /animals/{id}/full/`). Así el listado escala sin recargarse."""
+
+    sex_display = serializers.CharField(source='get_sex_display', read_only=True)
+    mother_name = serializers.CharField(source='mother.name', read_only=True, default=None)
+    father_name = serializers.CharField(source='father.name', read_only=True, default=None)
+    breed_name = serializers.CharField(source='breed.name', read_only=True, default=None)
+    identifications = AnimalIdentificationSerializer(many=True, read_only=True)
+    primary_photo = serializers.SerializerMethodField(help_text='URL de la foto más reciente, o null.')
+    births_count = serializers.IntegerField(read_only=True, default=0)
+    offspring_count = serializers.IntegerField(read_only=True, default=0)
+    reproduction = serializers.SerializerMethodField(
+        help_text='Resumen reproductivo para el chip de estado (solo hembras).',
+    )
+
+    class Meta:
+        model = Animal
+        fields = (
+            'id', 'name', 'sex', 'sex_display', 'birth_date',
+            'mother', 'mother_name', 'father', 'father_name',
+            'breed', 'breed_name', 'identifications', 'primary_photo',
+            'births_count', 'offspring_count', 'reproduction',
+            'is_active', 'created_at', 'updated_at',
+        )
+
+    def get_primary_photo(self, obj):
+        # ordering del modelo es -created_at → el primero es el más reciente.
+        return _photo_url(next(iter(obj.photos.all()), None), self.context)
+
+    def get_reproduction(self, obj):
+        return summarize_reproduction(obj)
+
+
+class AnimalOffspringSerializer(serializers.ModelSerializer):
+    """Cría (resumen mínimo) para la ficha completa."""
+
+    sex_display = serializers.CharField(source='get_sex_display', read_only=True)
+
+    class Meta:
+        model = Animal
+        fields = ('id', 'name', 'sex', 'sex_display', 'birth_date')
+
+
+class AnimalDetailSerializer(AnimalSerializer):
+    """Ficha COMPLETA del animal: hereda todo lo del animal (datos, raza,
+    identificaciones, fotos, resumen reproductivo) y suma las colecciones
+    relacionadas (historial de eventos reproductivos y crías). Solo lectura;
+    se sirve en el endpoint dedicado `full/` para no recargar el listado."""
+
+    reproductive_events = serializers.SerializerMethodField(
+        help_text='Historial completo de eventos reproductivos (más reciente primero).',
+    )
+    offspring = serializers.SerializerMethodField(
+        help_text='Crías de este animal (como madre o como padre).',
+    )
+
+    class Meta(AnimalSerializer.Meta):
+        fields = AnimalSerializer.Meta.fields + ('reproductive_events', 'offspring')
+
+    def get_reproductive_events(self, obj):
+        events = sorted(
+            (e for e in obj.reproductive_events.all() if e.is_active),
+            key=lambda e: (e.date, e.pk), reverse=True,
+        )
+        return ReproductiveEventSerializer(events, many=True, context=self.context).data
+
+    def get_offspring(self, obj):
+        children = sorted(
+            [*obj.maternal_offspring.all(), *obj.paternal_offspring.all()],
+            key=lambda a: a.birth_date, reverse=True,
+        )
+        return AnimalOffspringSerializer(children, many=True, context=self.context).data

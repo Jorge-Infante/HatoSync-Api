@@ -1,3 +1,5 @@
+import uuid
+
 from django.db import models
 from django.utils import timezone
 
@@ -28,6 +30,7 @@ class ReproductiveEvent(models.Model):
         POSITIVE = 'POSITIVE', 'Positivo'
         NEGATIVE = 'NEGATIVE', 'Negativo'
 
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     animal = models.ForeignKey(
         'livestock.Animal', on_delete=models.CASCADE,
         related_name='reproductive_events', verbose_name='animal',
@@ -59,7 +62,7 @@ class ReproductiveEvent(models.Model):
         db_table = 'reproduction_reproductiveevent'
         verbose_name = 'evento reproductivo'
         verbose_name_plural = 'eventos reproductivos'
-        ordering = ['-date', '-id']
+        ordering = ['-date', '-created_at']
         indexes = [
             models.Index(fields=['animal', 'date']),
             models.Index(fields=['animal', 'event_type']),

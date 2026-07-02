@@ -6,16 +6,22 @@ from ..models import Breed, IdentificationType
 class IdentificationTypeSerializer(serializers.ModelSerializer):
     """Serializer para tipos de identificación. La finca se asigna desde la activa."""
 
+    # Escribible para soporte offline (UUID de cliente; idempotente al sincronizar).
+    id = serializers.UUIDField(required=False)
+
     class Meta:
         model = IdentificationType
         fields = ('id', 'name', 'is_unique', 'is_active', 'created_at')
-        read_only_fields = ('id', 'created_at')
+        read_only_fields = ('created_at',)
 
 
 class BreedSerializer(serializers.ModelSerializer):
     """Serializer para razas. La finca se asigna desde la activa."""
 
+    # Escribible para soporte offline (UUID de cliente; idempotente al sincronizar).
+    id = serializers.UUIDField(required=False)
+
     class Meta:
         model = Breed
         fields = ('id', 'name', 'is_active', 'created_at')
-        read_only_fields = ('id', 'created_at')
+        read_only_fields = ('created_at',)

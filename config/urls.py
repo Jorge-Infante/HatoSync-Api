@@ -24,7 +24,7 @@ urlpatterns = [
     path('api/v1/farms/', include('apps.farms.api.urls')),
     path('api/v1/livestock/', include('apps.livestock.api.urls')),
     path(
-        'api/v1/livestock/animals/<int:animal_id>/reproduction/',
+        'api/v1/livestock/animals/<uuid:animal_id>/reproduction/',
         include('apps.reproduction.api.urls'),
     ),
     path('api/v1/configuration/', include('apps.configuration.api.urls')),

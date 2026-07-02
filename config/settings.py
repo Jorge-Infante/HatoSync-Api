@@ -7,7 +7,9 @@ SECRET_KEY = 'django-insecure-(n#!(yh=yn)6p_^o5*x^qyhh0-k^h%qcb^e5j2cr6+yd(55i#m
 
 DEBUG = True
 
-ALLOWED_HOSTS = []
+# En desarrollo se acepta cualquier host (necesario para acceder desde el
+# emulador/celular vía IP LAN, ej. 192.168.0.7). Restringir en producción.
+ALLOWED_HOSTS = ['*'] if DEBUG else []
 
 
 # Application definition
